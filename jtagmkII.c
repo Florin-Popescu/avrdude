@@ -21,7 +21,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: jtagmkII.c 1338 2014-10-15 20:01:12Z joerg_wunsch $ */
+/* $Id: jtagmkII.c 1435 2020-03-14 22:34:45Z joerg_wunsch $ */
 
 /*
  * avrdude interface for Atmel JTAG ICE mkII programmer
@@ -604,6 +604,7 @@ static int jtagmkII_recv_frame(PROGRAMMER * pgm, unsigned char **msg,
      if (tnow - tstart > timeoutval) {
        avrdude_message(MSG_INFO, "%s: jtagmkII_recv_frame(): timeout\n",
                progname);
+       free(buf);
        return -1;
      }
 
@@ -741,6 +742,7 @@ int jtagmkII_getsync(PROGRAMMER * pgm, int mode) {
 	  avrdude_message(MSG_NOTICE, "Device ID:                       %s\n",
 		  resp + 16);
 	}
+	free(resp);
 	break;
       }
       free(resp);
@@ -1346,12 +1348,7 @@ static int jtagmkII_initialize(PROGRAMMER * pgm, AVRPART * p)
     jtagmkII_set_devdescr(pgm, p);
 
   PDATA(pgm)->boot_start = ULONG_MAX;
-  /*
-   * If this is an ATxmega device in JTAG mode, change the emulator
-   * mode from JTAG to JTAG_XMEGA.
-   */
-  if ((pgm->flag & PGM_FL_IS_JTAG) &&
-      (p->flags & AVRPART_HAS_PDI)) {
+  if ((p->flags & AVRPART_HAS_PDI)) {
     /*
      * Find out where the border between application and boot area
      * is.
@@ -3639,12 +3636,12 @@ static int jtagmkII_paged_write32(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
     status = jtagmkII_flash_write_page32(pgm, pageNum);
     if(status < 0) {lineno = __LINE__; goto eRR;}
   }
-  free(cmd);
   serial_recv_timeout = otimeout;
 
   status = jtagmkII_reset32(pgm, AVR32_SET4RUNNING);  // AVR32_SET4RUNNING | AVR32_RELEASE_JTAG
   if(status < 0) {lineno = __LINE__; goto eRR;}
 
+  free(cmd);
   return addr;
 
   eRR:

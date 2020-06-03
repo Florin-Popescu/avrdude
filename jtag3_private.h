@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: jtag3_private.h 1278 2014-02-26 17:54:32Z joerg_wunsch $ */
+/* $Id: jtag3_private.h 1403 2017-12-30 00:05:54Z joerg_wunsch $ */
 
 
 /*
@@ -109,6 +109,7 @@
 #define CMD3_GET_PARAMETER         0x02
 #define CMD3_SIGN_ON               0x10
 #define CMD3_SIGN_OFF              0x11 /* takes one parameter? */
+#define CMD3_GET_ID                0x12
 #define CMD3_START_DW_DEBUG        0x13
 #define CMD3_MONCON_DISABLE        0x17
 
@@ -143,6 +144,7 @@
 #  define RSP3_FAIL_WRONG_MODE          0x32 /* progmode vs. non-prog */
 #  define RSP3_FAIL_UNSUPP_MEMORY       0x34 /* unsupported memory type */
 #  define RSP3_FAIL_WRONG_LENGTH        0x35 /* wrong lenth for mem access */
+#  define RSP3_FAIL_OCD_LOCKED          0x44 /* device is locked */
 #  define RSP3_FAIL_NOT_UNDERSTOOD      0x91
 
 /* ICE events */
@@ -165,6 +167,16 @@
 #define MTYPE_EEPROM_XMEGA 0xc4	/* xmega EEPROM in debug mode - undocumented in AVR067 */
 #define MTYPE_USERSIG     0xc5	/* xmega user signature - undocumented in AVR067 */
 #define MTYPE_PRODSIG     0xc6	/* xmega production signature - undocumented in AVR067 */
+#define MTYPE_SIB         0xD3  /* AVR8X System Information Block */
+
+/*
+ * SET and GET context definitions
+ */
+#define SET_GET_CTXT_CONFIG    0x00 /* Configuration */
+#define SET_GET_CTXT_PHYSICAL  0x01 /* Physical interface related */
+#define SET_GET_CTXT_DEVICE    0x02 /* Device specific settings */
+#define SET_GET_CTXT_OPTIONS   0x03 /* Option-related settings */
+#define SET_GET_CTXT_SESSION   0x04 /* Session-related settings */
 
 /*
  * Parameters are divided into sections, where the section number
@@ -189,6 +201,7 @@
 #  define PARM3_ARCH_TINY   1   /* also small megaAVR with ISP/DW only */
 #  define PARM3_ARCH_MEGA   2
 #  define PARM3_ARCH_XMEGA  3
+#  define PARM3_ARCH_UPDI   5   /* AVR devices with UPDI i/f */
 
 #define PARM3_SESS_PURPOSE 0x01 /* section 0, AVR scope, 1 byte */
 #  define PARM3_SESS_PROGRAMMING 1
@@ -199,18 +212,26 @@
 #  define PARM3_CONN_JTAG   4
 #  define PARM3_CONN_DW     5
 #  define PARM3_CONN_PDI    6
+#  define PARM3_CONN_UPDI   8
 
 
 #define PARM3_JTAGCHAIN   0x01  /* JTAG chain info, AVR scope (units
                                  * before/after, bits before/after), 4
                                  * bytes */
 
+/*
+ * Physical context parameters
+ */
 #define PARM3_CLK_MEGA_PROG  0x20 /* section 1, AVR scope, 2 bytes (kHz) */
 #define PARM3_CLK_MEGA_DEBUG 0x21 /* section 1, AVR scope, 2 bytes (kHz) */
 #define PARM3_CLK_XMEGA_JTAG 0x30 /* section 1, AVR scope, 2 bytes (kHz) */
 #define PARM3_CLK_XMEGA_PDI  0x31 /* section 1, AVR scope, 2 bytes (kHz) */
 
-
+/*
+ * Options context parameters
+ */
+#define PARM3_OPT_12V_UPDI_ENABLE      0x06
+#define PARM3_OPT_CHIP_ERASE_TO_ENTER  0x07
 
 /* Xmega erase memory types, for CMND_XMEGA_ERASE */
 #define XMEGA_ERASE_CHIP        0x00
@@ -315,5 +336,14 @@ struct xmega_device_desc {
     unsigned char eeprom_page_size;	// EEPROM page size
     unsigned char nvm_base_addr[2];	// IO space base address of NVM controller
     unsigned char mcu_base_addr[2];	// IO space base address of MCU control
+};
+
+/* UPDI device descriptor */
+struct updi_device_desc {
+    unsigned char prog_base[2];
+    unsigned char flash_page_size;
+    unsigned char eeprom_page_size;
+    unsigned char nvm_base_addr[2];
+    unsigned char ocd_base_addr[2];
 };
 #endif /* JTAG3_PRIVATE_EXPORTED */

@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: lexer.l 1322 2014-06-17 20:08:28Z rliebscher $ */
+/* $Id: lexer.l 1405 2018-01-09 23:29:31Z joerg_wunsch $ */
 
 %{
 /* need this for the call to atof() below */
@@ -140,6 +140,7 @@ default_safemode { yylval=NULL; return K_DEFAULT_SAFEMODE; }
 default_serial   { yylval=NULL; return K_DEFAULT_SERIAL; }
 delay            { yylval=NULL; return K_DELAY; }
 desc             { yylval=NULL; return K_DESC; }
+family_id        { yylval=NULL; return K_FAMILY_ID; }
 devicecode       { yylval=NULL; return K_DEVICECODE; }
 eecr             { yylval=NULL; return K_EECR; }
 eeprom           { yylval=NULL; return K_EEPROM; }
@@ -152,6 +153,7 @@ has_debugwire    { yylval=NULL; return K_HAS_DW; }
 has_jtag         { yylval=NULL; return K_HAS_JTAG; }
 has_pdi          { yylval=NULL; return K_HAS_PDI; }
 has_tpi          { yylval=NULL; return K_HAS_TPI; }
+has_updi         { yylval=NULL; return K_HAS_UPDI; }
 hventerstabdelay { yylval=NULL; return K_HVENTERSTABDELAY; }
 hvleavestabdelay { yylval=NULL; return K_HVLEAVESTABDELAY; }
 hvsp_controlstack  { yylval=NULL; return K_HVSP_CONTROLSTACK; }
@@ -176,6 +178,7 @@ no               { yylval=new_token(K_NO); return K_NO; }
 num_banks        { yylval=NULL; return K_NUM_PAGES; }
 num_pages        { yylval=NULL; return K_NUM_PAGES; }
 nvm_base         { yylval=NULL; return K_NVM_BASE; }
+ocd_base         { yylval=NULL; return K_OCD_BASE; }
 ocdrev           { yylval=NULL; return K_OCDREV; }
 offset           { yylval=NULL; return K_OFFSET; }
 page_size        { yylval=NULL; return K_PAGE_SIZE; }

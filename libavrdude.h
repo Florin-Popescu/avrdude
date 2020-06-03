@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: libavrdude.h 1332 2014-08-18 21:43:08Z rliebscher $ */
+/* $Id: libavrdude.h 1417 2018-01-16 21:17:04Z joerg_wunsch $ */
 
 #ifndef libavrdude_h
 #define libavrdude_h
@@ -199,9 +199,12 @@ typedef struct opcode {
 #define AVRPART_WRITE          0x0400  /* at least one write operation specified */
 #define AVRPART_HAS_TPI        0x0800  /* part has TPI i/f rather than ISP (ATtiny4/5/9/10) */
 #define AVRPART_IS_AT90S1200   0x1000  /* part is an AT90S1200 (needs special treatment) */
+#define AVRPART_HAS_UPDI       0x2000  /* part has UPDI i/f (AVR8X) */
 
 #define AVR_DESCLEN 64
 #define AVR_IDLEN   32
+#define AVR_FAMILYIDLEN 7
+#define AVR_SIBLEN 16
 #define CTL_STACK_SIZE 32
 #define FLASH_INSTR_SIZE 3
 #define EEPROM_INSTR_SIZE 20
@@ -211,6 +214,7 @@ typedef struct opcode {
 typedef struct avrpart {
   char          desc[AVR_DESCLEN];  /* long part name */
   char          id[AVR_IDLEN];      /* short part name */
+  char          family_id[AVR_FAMILYIDLEN+1]; /* family id in the SIB (avr8x) */
   int           stk500_devcode;     /* stk500 device code */
   int           avr910_devcode;     /* avr910 device code */
   int           chip_erase_delay;   /* microseconds */
@@ -264,6 +268,7 @@ typedef struct avrpart {
   unsigned short eecr;              /* JTAC ICE mkII XML file parameter */
   unsigned int mcu_base;            /* Base address of MCU control block in ATxmega devices */
   unsigned int nvm_base;            /* Base address of NVM controller in ATxmega devices */
+  unsigned int ocd_base;            /* Base address of OCD module in AVR8X/UPDI devices */
   int           ocdrev;             /* OCD revision (JTAGICE3 parameter, from AS6 XML files) */
 
   OPCODE      * op[AVR_OP_MAX];     /* opcodes */
@@ -563,6 +568,7 @@ extern struct serial_device serial_serdev;
 extern struct serial_device usb_serdev;
 extern struct serial_device usb_serdev_frame;
 extern struct serial_device avrdoper_serdev;
+extern struct serial_device usbhid_serdev;
 
 #define serial_open (serdev->open)
 #define serial_setspeed (serdev->setspeed)
@@ -641,6 +647,7 @@ typedef struct programmer_t {
   void (*powerdown)      (struct programmer_t * pgm);
   int  (*program_enable) (struct programmer_t * pgm, AVRPART * p);
   int  (*chip_erase)     (struct programmer_t * pgm, AVRPART * p);
+  int  (*unlock)         (struct programmer_t * pgm, AVRPART * p);
   int  (*cmd)            (struct programmer_t * pgm, const unsigned char *cmd,
                           unsigned char *res);
   int  (*cmd_tpi)        (struct programmer_t * pgm, const unsigned char *cmd,
@@ -663,6 +670,7 @@ typedef struct programmer_t {
   int  (*read_byte)      (struct programmer_t * pgm, AVRPART * p, AVRMEM * m,
                           unsigned long addr, unsigned char * value);
   int  (*read_sig_bytes) (struct programmer_t * pgm, AVRPART * p, AVRMEM * m);
+  int  (*read_sib)       (struct programmer_t * pgm, AVRPART * p, char *sib);
   void (*print_parms)    (struct programmer_t * pgm);
   int  (*set_vtarget)    (struct programmer_t * pgm, double v);
   int  (*set_varef)      (struct programmer_t * pgm, unsigned int chan, double v);
@@ -756,6 +764,8 @@ int avr_put_cycle_count(PROGRAMMER * pgm, AVRPART * p, int cycles);
 int avr_mem_hiaddr(AVRMEM * mem);
 
 int avr_chip_erase(PROGRAMMER * pgm, AVRPART * p);
+
+int avr_unlock(PROGRAMMER * pgm, AVRPART * p);
 
 void report_progress (int completed, int total, char *hdr);
 

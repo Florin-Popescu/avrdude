@@ -19,7 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: stk500v2.c 1342 2014-11-19 17:23:14Z joerg_wunsch $ */
+/* $Id: stk500v2.c 1435 2020-03-14 22:34:45Z joerg_wunsch $ */
 /* Based on Id: stk500.c,v 1.46 2004/12/22 01:52:45 bdean Exp */
 
 /*
@@ -78,17 +78,9 @@
 // Retry count
 #define RETRIES 5
 
-#if 0
-#define DEBUG(...) avrdude_message(MSG_INFO, __VA_ARGS__)
-#else
-#define DEBUG(...)
-#endif
+#define DEBUG(...) avrdude_message(MSG_TRACE2, __VA_ARGS__)
 
-#if 0
-#define DEBUGRECV(...) avrdude_message(MSG_INFO, __VA_ARGS__)
-#else
-#define DEBUGRECV(...)
-#endif
+#define DEBUGRECV(...) avrdude_message(MSG_TRACE2, __VA_ARGS__)
 
 enum hvmode
 {
@@ -356,6 +348,9 @@ static void stk500v2_jtagmkII_teardown(PROGRAMMER * pgm)
 {
   void *mycookie;
 
+  free(PDATA(pgm)->flash_pagecache);
+  free(PDATA(pgm)->eeprom_pagecache);
+
   mycookie = pgm->cookie;
   pgm->cookie = PDATA(pgm)->chained_pdata;
   jtagmkII_teardown(pgm);
@@ -578,6 +573,7 @@ static int stk500v2_jtagmkII_recv(PROGRAMMER * pgm, unsigned char *msg,
     return -1;
   }
   memcpy(msg, jtagmsg + 1, rv - 1);
+  free(jtagmsg);
   return rv;
 }
 
@@ -1617,11 +1613,11 @@ static int stk500v2_open(PROGRAMMER * pgm, char * port)
   PDATA(pgm)->pgmtype = PGMTYPE_UNKNOWN;
 
   if(strcasecmp(port, "avrdoper") == 0){
-#if defined(HAVE_LIBUSB) || (defined(WIN32NATIVE) && defined(HAVE_LIBHID))
+#if defined(HAVE_LIBHIDAPI) || (defined(WIN32NATIVE) && defined(HAVE_LIBHID))
     serdev = &avrdoper_serdev;
     PDATA(pgm)->pgmtype = PGMTYPE_STK500;
 #else
-    avrdude_message(MSG_INFO, "avrdude was compiled without usb support.\n");
+    avrdude_message(MSG_INFO, "avrdoper requires avrdude with hid support.\n");
     return -1;
 #endif
   }
@@ -2176,6 +2172,9 @@ static int stk500isp_write_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
       paddr = addr & ~(pagesize - 1);
       paddr_ptr = &PDATA(pgm)->flash_pageaddr;
       cache_ptr = PDATA(pgm)->flash_pagecache;
+      if ((mem->mode & 1) == 0)
+	/* old, unpaged device, really write single bytes */
+	pagesize = 1;
     } else {
       pagesize = mem->page_size;
       if (pagesize == 0)

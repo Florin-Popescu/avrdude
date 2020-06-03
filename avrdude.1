@@ -16,7 +16,7 @@
 .\" along with this program. If not, see <http://www.gnu.org/licenses/>.
 .\"
 .\"
-.\" $Id: avrdude.1 1375 2016-02-15 21:02:00Z joerg_wunsch $
+.\" $Id: avrdude.1 1430 2019-12-17 22:31:51Z joerg_wunsch $
 .\"
 .Dd DATE February 15, 2016
 .Os
@@ -117,12 +117,15 @@ Using firmware version 2, high-voltage programming is also supported,
 both parallel and serial
 (programmer types stk500pp and stk500hvsp).
 .Pp
-Wiring boards are supported, utilizing STK500 V2.x protocol, but
-a simple DTR/RTS toggle is used to set the boards into programming mode.
-The programmer type is ``wiring''.
+Wiring boards (e.g. Arduino Mega 2560 Rev3) are supported, utilizing STK500
+V2.x protocol, but a simple DTR/RTS toggle is used to set the boards into
+programming mode.  The programmer type is ``wiring''.  Note that the -D option
+will likely be required in this case, because the bootloader will rewrite the
+program memory, but no true chip erase can be performed.
 .Pp
 The Arduino (which is very similar to the STK500 1.x) is supported via
-its own programmer type specification ``arduino''.
+its own programmer type specification ``arduino''.  This programmer works for
+the Arduino Uno Rev3.
 .Pp
 The BusPirate is a versatile tool that can also be used as an AVR programmer.
 A single BusPirate can be connected to up to 3 independent AVRs. See
@@ -485,7 +488,7 @@ same method of specifying the port is required there.
 For the USB programmer "AVR-Doper" running in HID mode, the port must
 be specified as
 .Ar avrdoper.
-Libusb support is required on Unix but not on Windows. For more
+Libhidapi support is required on Unix and Mac OS but not on Windows. For more
 information about AVR-Doper see http://www.obdev.at/avrusb/avrdoper.html.
 .Pp
 For the USBtinyISP, which is a simplicistic device not implementing
@@ -505,12 +508,19 @@ network connection to (TCP)
 on
 .Ar host
 is established.
+Square brackets may be placed around
+.Ar host
+to improve readability, for numeric IPv6 addresses (e.g.
+.Li net:[2001:db8::42]:1337 ) .
 The remote endpoint is assumed to be a terminal or console server
 that connects the network stream to a local serial port where the
 actual programmer has been attached to.
 The port is assumed to be properly configured, for example using a
 transparent 8-bit data connection without parity at 115200 Baud
 for a STK500.
+.Pp
+Note: The ability to handle IPv6 hostnames and addresses is limited to
+Posix systems (by now).
 .It Fl q
 Disable (or quell) output of the progress bar while reading or writing
 to the device.  Specify it a second time for even quieter operation.
@@ -1046,6 +1056,15 @@ Extended commandline parameters:
 Sets the SPI clocking rate in Hz (default is 100kHz). Alternately the -B or -i options can be used to set the period.
 .It Ar timeout=<usb-transaction-timeout>
 Sets the timeout for USB reads and writes in milliseconds (default is 1500 ms).
+.El
+.It Ar USBasp
+Extended parameters:
+.Bl -tag -offset indent -width indent
+.It Ar section_config
+Programmer will erase configuration section with option
+.Fl e
+(chip erase), rather than entire chip.
+Only applicable to TPI devices (ATtiny 4/5/9/10/20/40).
 .El
 .El
 .Sh FILES

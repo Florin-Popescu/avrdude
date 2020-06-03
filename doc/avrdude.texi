@@ -1,7 +1,7 @@
 %% -*-texinfo-*-
 \input texinfo
 
-@c $Id: avrdude.texi 1375 2016-02-15 21:02:00Z joerg_wunsch $
+@c $Id: avrdude.texi 1430 2019-12-17 22:31:51Z joerg_wunsch $
 
 @setfilename avrdude.info
 @settitle AVRDUDE
@@ -30,7 +30,7 @@ For avrdude version @value{VERSION}, @value{UPDATED}.
 
 Copyright @copyright{} 2003, 2005 Brian Dean
 
-Copyright @copyright{} 2006 - 2011 J@"org Wunsch
+Copyright @copyright{} 2006 - 2016 J@"org Wunsch
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -234,12 +234,16 @@ option might be required to achieve a stable ISP communication.
 For ATxmega devices, the AVR Dragon is supported in PDI mode, provided it
 has a firmware version of at least 6.11 (decimal).
 
-Wiring boards are supported, utilizing STK500 V2.x protocol, but
-a simple DTR/RTS toggle to set the boards into programming mode.
-The programmer type is ``wiring''.
+Wiring boards (e.g. Arduino Mega 2560 Rev3) are supported, utilizing
+STK500 V2.x protocol, but a simple DTR/RTS toggle to set the boards
+into programming mode.  The programmer type is ``wiring''. Note that
+the -D option will likely be required in this case, because the
+bootloader will rewrite the program memory, but no true chip erase can
+be performed.
 
 The Arduino (which is very similar to the STK500 1.x) is supported via
-its own programmer type specification ``arduino''.
+its own programmer type specification ``arduino''.  This programmer works for
+the Arduino Uno Rev3.
 
 The BusPirate is a versatile tool that can also be used as an AVR programmer.
 A single BusPirate can be connected to up to 3 independent AVRs. See
@@ -542,8 +546,8 @@ As the AVRISP mkII device can only be talked to over USB, the very
 same method of specifying the port is required there.
 
 For the USB programmer "AVR-Doper" running in HID mode, the port must
-be specified as @var{avrdoper}. Libusb support is required on Unix
-but not on Windows. For more information about AVR-Doper see
+be specified as @var{avrdoper}. Libhidapi support is required on Unix
+and Mac OS but not on Windows. For more information about AVR-Doper see
 @url{http://www.obdev.at/avrusb/avrdoper.html}.
 
 For the USBtinyISP, which is a simplistic device not implementing
@@ -557,6 +561,9 @@ higher level protocol (as opposed to bit-bang style programmers),
 In this case, instead of trying to open a local device, a TCP
 network connection to (TCP) @var{port} on @var{host}
 is established.
+Square brackets may be placed around @var{host} to improve
+readability for numeric IPv6 addresses (e.g.
+@code{net:[2001:db8::42]:1337}).
 The remote endpoint is assumed to be a terminal or console server
 that connects the network stream to a local serial port where the
 actual programmer has been attached to.
@@ -564,6 +571,8 @@ The port is assumed to be properly configured, for example using a
 transparent 8-bit data connection without parity at 115200 Baud
 for a STK500.
 
+Note: The ability to handle IPv6 hostnames and addresses is limited to
+Posix systems (by now).
 
 @item -q
 Disable (or quell) output of the progress bar while reading or writing
@@ -907,6 +916,16 @@ Extended command line parameters:
 Sets the SPI clocking rate in Hz (default is 100kHz). Alternately the -B or -i options can be used to set the period.
 @item @samp{timeout=@var{usb-transaction-timeout}}
 Sets the timeout for USB reads and writes in milliseconds (default is 1500 ms).
+@end table
+
+@item USBasp
+Extended parameters:
+@table @code
+@item @samp{section_config}
+Programmer will erase
+configuration section with option '-e' (chip erase),
+rather than entire chip.
+Only applicable to TPI devices (ATtiny 4/5/9/10/20/40).
 @end table
 
 @end table
@@ -1437,9 +1456,11 @@ Following programmer types are currently implemented:
 part
     id               = <id> ;                 # quoted string
     desc             = <description> ;        # quoted string
+    family_id        = <description> ;        # quoted string
     has_jtag         = <yes/no> ;             # part has JTAG i/f
     has_debugwire    = <yes/no> ;             # part has debugWire i/f
     has_pdi          = <yes/no> ;             # part has PDI i/f
+    has_updi         = <yes/no> ;             # part has UPDI i/f
     has_tpi          = <yes/no> ;             # part has TPI i/f
     devicecode       = <num> ;                # numeric
     stk500_devcode   = <num> ;                # numeric

@@ -16,8 +16,17 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+# In order to get verbose build messages rather than a summary line
+# only, either use
 #
-# $Id: Makefile.am 1357 2015-10-30 23:11:22Z joerg_wunsch $
+# ./configure --disable-silent-rules
+#
+# or run make like
+#
+# make V=1
+
+#
+# $Id: Makefile.am 1411 2018-01-12 22:07:39Z joerg_wunsch $
 #
 
 EXTRA_DIST   = \
@@ -33,6 +42,10 @@ EXTRA_DIST   = \
 	ChangeLog-2011 \
 	ChangeLog-2012 \
 	ChangeLog-2013 \
+	ChangeLog-2014 \
+	ChangeLog-2015 \
+	ChangeLog-2016 \
+	ChangeLog-2017 \
 	avrdude.1 \
 	avrdude.spec \
 	bootstrap
@@ -66,7 +79,7 @@ avrdude_CFLAGS   = @ENABLE_WARNINGS@
 libavrdude_a_CFLAGS   = @ENABLE_WARNINGS@
 libavrdude_la_CFLAGS  = $(libavrdude_a_CFLAGS)
 
-avrdude_LDADD  = $(top_builddir)/$(noinst_LIBRARIES) @LIBUSB_1_0@ @LIBUSB@ @LIBFTDI1@ @LIBFTDI@ @LIBHID@ @LIBELF@ @LIBPTHREAD@ -lm
+avrdude_LDADD  = $(top_builddir)/$(noinst_LIBRARIES) @LIBUSB_1_0@ @LIBHIDAPI@ @LIBUSB@ @LIBFTDI1@ @LIBFTDI@ @LIBHID@ @LIBELF@ @LIBPTHREAD@ -lm
 
 bin_PROGRAMS = avrdude
 
@@ -169,6 +182,7 @@ libavrdude_a_SOURCES = \
 	usbasp.c \
 	usbasp.h \
 	usbdevs.h \
+	usb_hidapi.c \
 	usb_libusb.c \
 	usbtiny.h \
 	usbtiny.c \

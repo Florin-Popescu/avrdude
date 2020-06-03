@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: fileio.c 1338 2014-10-15 20:01:12Z joerg_wunsch $ */
+/* $Id: fileio.c 1431 2020-03-11 09:41:15Z joerg_wunsch $ */
 
 #include "ac_cfg.h"
 
@@ -34,7 +34,9 @@
 #elif defined(HAVE_LIBELF_LIBELF_H)
 #include <libelf/libelf.h>
 #endif
-#define EM_AVR32 0x18ad         /* inofficial */
+#ifndef EM_AVR32
+#  define EM_AVR32 0x18ad         /* inofficial */
+#endif
 #endif
 
 #include "avrdude.h"

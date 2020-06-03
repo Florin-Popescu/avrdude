@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: update.c 1355 2015-04-09 19:50:30Z joerg_wunsch $ */
+/* $Id: update.c 1435 2020-03-14 22:34:45Z joerg_wunsch $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,7 +113,9 @@ UPDATE * parse_op(char * s)
   cp = p;
   p = strrchr(cp, ':');
   if (p == NULL) {
-    upd->format = FMT_AUTO;
+    // missing format, default to "AUTO" for write and verify,
+    // and to binary for read operations:
+    upd->format = upd->op == DEVICE_READ? FMT_RBIN: FMT_AUTO;
     fnlen = strlen(cp);
     upd->filename = (char *)malloc(fnlen + 1);
   } else {
@@ -346,6 +348,7 @@ int do_op(PROGRAMMER * pgm, struct avrpart * p, UPDATE * upd, enum updateflags f
       avrdude_message(MSG_INFO, "%s: failed to read all of %s memory, rc=%d\n",
               progname, mem->desc, rc);
       pgm->err_led(pgm, ON);
+      avr_free_part(v);
       return -1;
     }
     report_progress (1,1,NULL);
@@ -360,6 +363,7 @@ int do_op(PROGRAMMER * pgm, struct avrpart * p, UPDATE * upd, enum updateflags f
       avrdude_message(MSG_INFO, "%s: verification error; content mismatch\n",
               progname);
       pgm->err_led(pgm, ON);
+      avr_free_part(v);
       return -1;
     }
 
@@ -369,6 +373,7 @@ int do_op(PROGRAMMER * pgm, struct avrpart * p, UPDATE * upd, enum updateflags f
     }
 
     pgm->vfy_led(pgm, OFF);
+    avr_free_part(v);
   }
   else {
     avrdude_message(MSG_INFO, "%s: invalid update operation (%d) requested\n",

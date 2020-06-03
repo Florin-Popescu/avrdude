@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: jtag3.c 1369 2016-02-15 19:58:45Z joerg_wunsch $ */
+/* $Id: jtag3.c 1422 2018-01-18 21:52:00Z joerg_wunsch $ */
 
 /*
  * avrdude interface for Atmel JTAGICE3 programmer
@@ -84,6 +84,7 @@ struct pdata
 #define PGM_FL_IS_PDI           (0x0002)
 #define PGM_FL_IS_JTAG          (0x0004)
 #define PGM_FL_IS_EDBG          (0x0008)
+#define PGM_FL_IS_UPDI          (0x0010)
 
 static int jtag3_open(PROGRAMMER * pgm, char * port);
 static int jtag3_edbg_prepare(PROGRAMMER * pgm);
@@ -839,11 +840,18 @@ int jtag3_recv(PROGRAMMER * pgm, unsigned char **msg) {
 
   c = (*resp)[1];
   if ((c & RSP3_STATUS_MASK) != RSP3_OK) {
-    avrdude_message(MSG_INFO, "%s: bad response to %s command: 0x%02x\n",
-                    progname, descr, c);
+    if ((c == RSP3_FAILED) && ((*resp)[3] == RSP3_FAIL_OCD_LOCKED)) {
+      avrdude_message(MSG_INFO,
+		      "%s: Device is locked! Chip erase required to unlock.\n",
+		      progname);
+    } else {
+      avrdude_message(MSG_INFO, "%s: bad response to %s command: 0x%02x\n",
+		      progname, descr, c);
+    }
+    status = (*resp)[3];
     free(*resp);
     resp = 0;
-    return -1;
+    return -status;
   }
 
   return status;
@@ -856,9 +864,14 @@ int jtag3_getsync(PROGRAMMER * pgm, int mode) {
 
   avrdude_message(MSG_DEBUG, "%s: jtag3_getsync()\n", progname);
 
+  /* XplainedMini boards do not need this, and early revisions had a
+   * firmware bug where they complained about it. */
   if (pgm->flag & PGM_FL_IS_EDBG) {
-    if (jtag3_edbg_prepare(pgm) < 0)
-      return -1;
+    if (strcmp(pgm->id, "xplainedmini_updi") != 0) {
+      if (jtag3_edbg_prepare(pgm) < 0) {
+        return -1;
+      }
+    }
   }
 
   /* Get the sign-on information. */
@@ -895,6 +908,34 @@ static int jtag3_chip_erase(PROGRAMMER * pgm, AVRPART * p)
 }
 
 /*
+ * UPDI 'unlock' -> 'enter progmode' with chip erase key
+ */
+static int jtag3_unlock_erase_key(PROGRAMMER * pgm, AVRPART * p)
+{
+  unsigned char buf[8], *resp;
+
+  buf[0] = 1; /* Enable */
+  if (jtag3_setparm(pgm, SCOPE_AVR, SET_GET_CTXT_OPTIONS, PARM3_OPT_CHIP_ERASE_TO_ENTER, buf, 1) < 0)
+    return -1;
+
+  buf[0] = SCOPE_AVR;
+  buf[1] = CMD3_ENTER_PROGMODE;
+  buf[2] = 0;
+
+  if (jtag3_command(pgm, buf, 3, &resp, "enter progmode") < 0)
+    return -1;
+  PDATA(pgm)->prog_enabled = 1;
+
+  buf[0] = 0; /* Disable */
+  if (jtag3_setparm(pgm, SCOPE_AVR, SET_GET_CTXT_OPTIONS, PARM3_OPT_CHIP_ERASE_TO_ENTER, buf, 1) < 0)
+    return -1;
+
+  free(resp);
+  return 0;
+}
+
+
+/*
  * There is no chip erase functionality in debugWire mode.
  */
 static int jtag3_chip_erase_dw(PROGRAMMER * pgm, AVRPART * p)
@@ -914,6 +955,7 @@ static int jtag3_program_enable_dummy(PROGRAMMER * pgm, AVRPART * p)
 static int jtag3_program_enable(PROGRAMMER * pgm)
 {
   unsigned char buf[3], *resp;
+  int status;
 
   if (PDATA(pgm)->prog_enabled)
     return 0;
@@ -922,14 +964,14 @@ static int jtag3_program_enable(PROGRAMMER * pgm)
   buf[1] = CMD3_ENTER_PROGMODE;
   buf[2] = 0;
 
-  if (jtag3_command(pgm, buf, 3, &resp, "enter progmode") >= 0) {
+  if ((status = jtag3_command(pgm, buf, 3, &resp, "enter progmode")) >= 0) {
     free(resp);
     PDATA(pgm)->prog_enabled = 1;
 
     return 0;
   }
 
-  return -1;
+  return status;
 }
 
 static int jtag3_program_disable(PROGRAMMER * pgm)
@@ -1014,6 +1056,10 @@ static int jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
     ifname = "PDI";
     if (p->flags & AVRPART_HAS_PDI)
       conn = PARM3_CONN_PDI;
+  } else if (pgm->flag & PGM_FL_IS_UPDI) {
+    ifname = "UPDI";
+    if (p->flags & AVRPART_HAS_UPDI)
+      conn = PARM3_CONN_UPDI;
   } else {
     ifname = "JTAG";
     if (p->flags & AVRPART_HAS_JTAG)
@@ -1028,6 +1074,8 @@ static int jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
 
   if (p->flags & AVRPART_HAS_PDI)
     parm[0] = PARM3_ARCH_XMEGA;
+  else if (p->flags & AVRPART_HAS_UPDI)
+    parm[0] = PARM3_ARCH_UPDI;
   else if (p->flags & AVRPART_HAS_DW)
     parm[0] = PARM3_ARCH_TINY;
   else
@@ -1043,7 +1091,7 @@ static int jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
   if (jtag3_setparm(pgm, SCOPE_AVR, 1, PARM3_CONNECTION, parm, 1) < 0)
     return -1;
 
-  if (conn == PARM3_CONN_PDI)
+  if (conn == PARM3_CONN_PDI || conn == PARM3_CONN_UPDI)
     PDATA(pgm)->set_sck = jtag3_set_sck_xmega_pdi;
   else if (conn == PARM3_CONN_JTAG) {
     if (p->flags & AVRPART_HAS_PDI)
@@ -1115,6 +1163,50 @@ static int jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
 	u32_to_b4(xd.nvm_data_offset, m->offset);
       }
     }
+
+    if (jtag3_setparm(pgm, SCOPE_AVR, 2, PARM3_DEVICEDESC, (unsigned char *)&xd, sizeof xd) < 0)
+      return -1;
+  }
+  else if ((p->flags & AVRPART_HAS_UPDI))
+  {
+    struct updi_device_desc xd;
+    LNODEID ln;
+    AVRMEM *m;
+
+    u16_to_b2(xd.nvm_base_addr, p->nvm_base);
+    u16_to_b2(xd.ocd_base_addr, p->ocd_base);
+
+    for (ln = lfirst(p->mem); ln; ln = lnext(ln))
+    {
+      m = ldata(ln);
+      if (strcmp(m->desc, "flash") == 0)
+      {
+        u16_to_b2(xd.prog_base, m->offset);
+
+        if (m->readsize != 0 && m->readsize < m->page_size)
+          PDATA(pgm)->flash_pagesize = m->readsize;
+        else
+          PDATA(pgm)->flash_pagesize = m->page_size;
+        xd.flash_page_size = m->page_size;
+      }
+      else if (strcmp(m->desc, "eeprom") == 0)
+      {
+        PDATA(pgm)->eeprom_pagesize = m->page_size;
+        xd.eeprom_page_size = m->page_size;
+      }
+    }
+
+    avrdude_message(MSG_NOTICE2, "UPDI SET: \n\t"
+      "xd->prog_base=%x %x\n\t"
+      "xd->flash_page_size=%x\n\t"
+      "xd->eeprom_page_size=%x\n\t"
+      "xd->nvmctrl=%x %x\n\t"
+      "xd->ocd=%x %x\n",
+      xd.prog_base[0], xd.prog_base[1],
+      xd.flash_page_size,
+      xd.eeprom_page_size,
+      xd.nvm_base_addr[0], xd.nvm_base_addr[1],
+      xd.ocd_base_addr[0], xd.ocd_base_addr[1]);
 
     if (jtag3_setparm(pgm, SCOPE_AVR, 2, PARM3_DEVICEDESC, (unsigned char *)&xd, sizeof xd) < 0)
       return -1;
@@ -1201,17 +1293,28 @@ static int jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
   }
 
   /*
-   * Depending on the target connection, there are two different
+   * Depending on the target connection, there are three different
    * possible replies of the ICE.  For a JTAG connection, the reply
    * format is RSP3_DATA, followed by 4 bytes of the JTAG ID read from
-   * the device (followed by a trailing 0).  For all other connections
+   * the device (followed by a trailing 0).
+   * For a UPDI connection the reply format is RSP3_DATA, followed by
+   * 4 bytes of the SIB Family_ID read from the device (followed by a
+   * trailing 0).
+   * For all other connections
    * (except ISP which is handled completely differently, but that
    * doesn't apply here anyway), the response is just RSP_OK.
    */
-  if (resp[1] == RSP3_DATA && status >= 7)
-    /* JTAG ID has been returned */
-    avrdude_message(MSG_NOTICE, "%s: JTAG ID returned: 0x%02x 0x%02x 0x%02x 0x%02x\n",
-	    progname, resp[3], resp[4], resp[5], resp[6]);
+  if (resp[1] == RSP3_DATA && status >= 7) {
+    if (p->flags & AVRPART_HAS_UPDI) {
+      /* Partial Family_ID has been returned */
+      avrdude_message(MSG_NOTICE, "%s: Partial Family_ID returned: \"%c%c%c%c\"\n",
+	      progname, resp[3], resp[4], resp[5], resp[6]);
+    }
+    else
+      /* JTAG ID has been returned */
+      avrdude_message(MSG_NOTICE, "%s: JTAG ID returned: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+	      progname, resp[3], resp[4], resp[5], resp[6]);
+  }
 
   free(resp);
 
@@ -1314,8 +1417,8 @@ int jtag3_open_common(PROGRAMMER * pgm, char * port)
   LNODEID usbpid;
   int rv = -1;
 
-#if !defined(HAVE_LIBUSB)
-  avrdude_message(MSG_INFO, "avrdude was compiled without usb support.\n");
+#if !defined(HAVE_LIBUSB) && !defined(HAVE_LIBHIDAPI)
+  avrdude_message(MSG_INFO, "avrdude was compiled without USB or HIDAPI support.\n");
   return -1;
 #endif
 
@@ -1325,7 +1428,6 @@ int jtag3_open_common(PROGRAMMER * pgm, char * port)
     return -1;
   }
 
-  serdev = &usb_serdev_frame;
   if (pgm->usbvid)
     pinfo.usbinfo.vid = pgm->usbvid;
   else
@@ -1335,17 +1437,42 @@ int jtag3_open_common(PROGRAMMER * pgm, char * port)
   if (lfirst(pgm->usbpid) == NULL)
     ladd(pgm->usbpid, (void *)USB_DEVICE_JTAGICE3);
 
+#if defined(HAVE_LIBHIDAPI)
+  /*
+   * Try HIDAPI first.  LibUSB is more generic, but might then cause
+   * troubles for HID-class devices in some OSes (like Windows).
+   */
+  serdev = &usbhid_serdev;
   for (usbpid = lfirst(pgm->usbpid); rv < 0 && usbpid != NULL; usbpid = lnext(usbpid)) {
     pinfo.usbinfo.flags = PINFO_FL_SILENT;
     pinfo.usbinfo.pid = *(int *)(ldata(usbpid));
     pgm->fd.usb.max_xfer = USBDEV_MAX_XFER_3;
     pgm->fd.usb.rep = USBDEV_BULK_EP_READ_3;
     pgm->fd.usb.wep = USBDEV_BULK_EP_WRITE_3;
-    pgm->fd.usb.eep = USBDEV_EVT_EP_READ_3;
+    pgm->fd.usb.eep = 0;
 
     strcpy(pgm->port, port);
     rv = serial_open(port, pinfo, &pgm->fd);
   }
+  if (rv < 0) {
+#endif	/* HAVE_LIBHIDAPI */
+#if defined(HAVE_LIBUSB)
+    serdev = &usb_serdev_frame;
+    for (usbpid = lfirst(pgm->usbpid); rv < 0 && usbpid != NULL; usbpid = lnext(usbpid)) {
+      pinfo.usbinfo.flags = PINFO_FL_SILENT;
+      pinfo.usbinfo.pid = *(int *)(ldata(usbpid));
+      pgm->fd.usb.max_xfer = USBDEV_MAX_XFER_3;
+      pgm->fd.usb.rep = USBDEV_BULK_EP_READ_3;
+      pgm->fd.usb.wep = USBDEV_BULK_EP_WRITE_3;
+      pgm->fd.usb.eep = USBDEV_EVT_EP_READ_3;
+
+      strcpy(pgm->port, port);
+      rv = serial_open(port, pinfo, &pgm->fd);
+    }
+#endif	/* HAVE_LIBUSB */
+#if defined(HAVE_LIBHIDAPI)
+  }
+#endif
   if (rv < 0) {
     avrdude_message(MSG_INFO, "%s: jtag3_open_common(): Did not find any device matching VID 0x%04x and PID list: ",
                     progname, (unsigned)pinfo.usbinfo.vid);
@@ -1419,6 +1546,18 @@ static int jtag3_open_pdi(PROGRAMMER * pgm, char * port)
   return 0;
 }
 
+static int jtag3_open_updi(PROGRAMMER * pgm, char * port)
+{
+  avrdude_message(MSG_NOTICE2, "%s: jtag3_open_updi()\n", progname);
+
+  if (jtag3_open_common(pgm, port) < 0)
+    return -1;
+
+  if (jtag3_getsync(pgm, PARM3_CONN_UPDI) < 0)
+    return -1;
+
+  return 0;
+}
 
 void jtag3_close(PROGRAMMER * pgm)
 {
@@ -1439,8 +1578,13 @@ void jtag3_close(PROGRAMMER * pgm)
   if (jtag3_command(pgm, buf, 4, &resp, "sign-off") >= 0)
     free(resp);
 
-  if (pgm->flag & PGM_FL_IS_EDBG)
-    jtag3_edbg_signoff(pgm);
+  /* XplainedMini boards do not need this, and early revisions had a
+   * firmware bug where they complained about it. */
+  if (pgm->flag & PGM_FL_IS_EDBG) {
+    if (strcmp(pgm->id, "xplainedmini_updi") != 0) {
+      jtag3_edbg_signoff(pgm);
+    }
+  }
 
   serial_close(&pgm->fd);
   pgm->fd.ifd = -1;
@@ -1502,8 +1646,13 @@ static int jtag3_paged_write(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
   int status, dynamic_memtype = 0;
   long otimeout = serial_recv_timeout;
 
-  avrdude_message(MSG_NOTICE2, "%s: jtag3_paged_write(.., %s, %d, %d)\n",
-	    progname, m->desc, page_size, n_bytes);
+  avrdude_message(MSG_NOTICE2, "%s: jtag3_paged_write(.., %s, %d, 0x%lx, %d)\n",
+	    progname, m->desc, page_size, addr, n_bytes);
+
+  block_size = jtag3_memaddr(pgm, p, m, addr);
+  if(block_size != addr)
+    avrdude_message(MSG_NOTICE2, "          mapped to address: 0x%lx\n", block_size);
+  block_size = 0;
 
   if (!(pgm->flag & PGM_FL_IS_DW) && jtag3_program_enable(pgm) < 0)
     return -1;
@@ -1547,7 +1696,7 @@ static int jtag3_paged_write(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
     cmd[3] = MTYPE_USERSIG;
   } else if ( ( strcmp(m->desc, "boot") == 0 ) ) {
     cmd[3] = MTYPE_BOOT_FLASH;
-  } else if ( p->flags & AVRPART_HAS_PDI ) {
+  } else if ( p->flags & AVRPART_HAS_PDI || p->flags & AVRPART_HAS_UPDI ) {
     cmd[3] = MTYPE_FLASH;
   } else {
     cmd[3] = MTYPE_SPM;
@@ -1606,8 +1755,13 @@ static int jtag3_paged_load(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
   int status, dynamic_memtype = 0;
   long otimeout = serial_recv_timeout;
 
-  avrdude_message(MSG_NOTICE2, "%s: jtag3_paged_load(.., %s, %d, %d)\n",
-	    progname, m->desc, page_size, n_bytes);
+  avrdude_message(MSG_NOTICE2, "%s: jtag3_paged_load(.., %s, %d, 0x%lx, %d)\n",
+	    progname, m->desc, page_size, addr, n_bytes);
+
+  block_size = jtag3_memaddr(pgm, p, m, addr);
+  if(block_size != addr)
+    avrdude_message(MSG_NOTICE2, "          mapped to address: 0x%lx\n", block_size);
+  block_size = 0;
 
   if (!(pgm->flag & PGM_FL_IS_DW) && jtag3_program_enable(pgm) < 0)
     return -1;
@@ -1624,7 +1778,7 @@ static int jtag3_paged_load(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
       /* dynamically decide between flash/boot memtype */
       dynamic_memtype = 1;
   } else if (strcmp(m->desc, "eeprom") == 0) {
-    cmd[3] = ( p->flags & AVRPART_HAS_PDI ) ? MTYPE_EEPROM : MTYPE_EEPROM_PAGE;
+    cmd[3] = ( p->flags & AVRPART_HAS_PDI || p->flags & AVRPART_HAS_UPDI ) ? MTYPE_EEPROM : MTYPE_EEPROM_PAGE;
     if (pgm->flag & PGM_FL_IS_DW)
       return -1;
   } else if ( ( strcmp(m->desc, "prodsig") == 0 ) ) {
@@ -1633,7 +1787,7 @@ static int jtag3_paged_load(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
     cmd[3] = MTYPE_USERSIG;
   } else if ( ( strcmp(m->desc, "boot") == 0 ) ) {
     cmd[3] = MTYPE_BOOT_FLASH;
-  } else if ( p->flags & AVRPART_HAS_PDI ) {
+  } else if ( p->flags & AVRPART_HAS_PDI || p->flags & AVRPART_HAS_UPDI ) {
     cmd[3] = MTYPE_FLASH;
   } else {
     cmd[3] = MTYPE_SPM;
@@ -1685,14 +1839,20 @@ static int jtag3_read_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
   avrdude_message(MSG_NOTICE2, "%s: jtag3_read_byte(.., %s, 0x%lx, ...)\n",
 	    progname, mem->desc, addr);
 
-  if (!(pgm->flag & PGM_FL_IS_DW) && jtag3_program_enable(pgm) < 0)
-    return -1;
+  paddr = jtag3_memaddr(pgm, p, mem, addr);
+  if(paddr != addr)
+    avrdude_message(MSG_NOTICE2, "          mapped to address: 0x%lx\n", paddr);
+  paddr = 0;
+
+  if (!(pgm->flag & PGM_FL_IS_DW))
+    if ((status = jtag3_program_enable(pgm)) < 0)
+      return status;
 
   cmd[0] = SCOPE_AVR;
   cmd[1] = CMD3_READ_MEMORY;
   cmd[2] = 0;
 
-  cmd[3] = ( p->flags & AVRPART_HAS_PDI ) ? MTYPE_FLASH : MTYPE_FLASH_PAGE;
+  cmd[3] = ( p->flags & AVRPART_HAS_PDI || p->flags & AVRPART_HAS_UPDI ) ? MTYPE_FLASH : MTYPE_FLASH_PAGE;
   if (strcmp(mem->desc, "flash") == 0 ||
       strcmp(mem->desc, "application") == 0 ||
       strcmp(mem->desc, "apptable") == 0 ||
@@ -1703,7 +1863,7 @@ static int jtag3_read_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
     paddr_ptr = &PDATA(pgm)->flash_pageaddr;
     cache_ptr = PDATA(pgm)->flash_pagecache;
   } else if (strcmp(mem->desc, "eeprom") == 0) {
-    if ( (pgm->flag & PGM_FL_IS_DW) || ( p->flags & AVRPART_HAS_PDI ) ) {
+    if ( (pgm->flag & PGM_FL_IS_DW) || ( p->flags & AVRPART_HAS_PDI ) || ( p->flags & AVRPART_HAS_UPDI ) ) {
       cmd[3] = MTYPE_EEPROM;
     } else {
       cmd[3] = MTYPE_EEPROM_PAGE;
@@ -1733,7 +1893,8 @@ static int jtag3_read_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
       unsupp = 1;
   } else if (strncmp(mem->desc, "fuse", strlen("fuse")) == 0) {
     cmd[3] = MTYPE_FUSE_BITS;
-    addr = mem->offset & 7;
+    if (!(p->flags & AVRPART_HAS_UPDI))
+      addr = mem->offset & 7;
   } else if (strcmp(mem->desc, "usersig") == 0) {
     cmd[3] = MTYPE_USERSIG;
   } else if (strcmp(mem->desc, "prodsig") == 0) {
@@ -1754,11 +1915,11 @@ static int jtag3_read_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
      * harm for other connection types either.
      */
     u32_to_b4(cmd + 8, 3);
-    u32_to_b4(cmd + 4, 0);
+    u32_to_b4(cmd + 4, jtag3_memaddr(pgm, p, mem, addr));
 
     if (addr == 0) {
       if ((status = jtag3_command(pgm, cmd, 12, &resp, "read memory")) < 0)
-	return -1;
+	return status;
 
       signature_cache[0] = resp[4];
       signature_cache[1] = resp[5];
@@ -1800,14 +1961,15 @@ static int jtag3_read_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
 
   if (pagesize) {
     u32_to_b4(cmd + 8, pagesize);
-    u32_to_b4(cmd + 4, paddr);
+    u32_to_b4(cmd + 4, jtag3_memaddr(pgm, p, mem, paddr));
+
   } else {
     u32_to_b4(cmd + 8, 1);
-    u32_to_b4(cmd + 4, addr);
+    u32_to_b4(cmd + 4, jtag3_memaddr(pgm, p, mem, addr));
   }
 
   if ((status = jtag3_command(pgm, cmd, 12, &resp, "read memory")) < 0)
-    return -1;
+    return status;
 
   if (resp[1] != RSP3_DATA ||
       status < (pagesize? pagesize: 1) + 4) {
@@ -1836,14 +1998,19 @@ static int jtag3_write_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
   unsigned char *cache_ptr = 0;
   int status, unsupp = 0;
   unsigned int pagesize = 0;
+  unsigned long mapped_addr;
 
   avrdude_message(MSG_NOTICE2, "%s: jtag3_write_byte(.., %s, 0x%lx, ...)\n",
 	    progname, mem->desc, addr);
 
+  mapped_addr = jtag3_memaddr(pgm, p, mem, addr);
+  if(mapped_addr != addr)
+    avrdude_message(MSG_NOTICE2, "          mapped to address: 0x%lx\n", mapped_addr);
+
   cmd[0] = SCOPE_AVR;
   cmd[1] = CMD3_WRITE_MEMORY;
   cmd[2] = 0;
-  cmd[3] = ( p->flags & AVRPART_HAS_PDI ) ? MTYPE_FLASH : MTYPE_SPM;
+  cmd[3] = ( p->flags & AVRPART_HAS_PDI || p->flags & AVRPART_HAS_UPDI ) ? MTYPE_FLASH : MTYPE_SPM;
   if (strcmp(mem->desc, "flash") == 0) {
      cache_ptr = PDATA(pgm)->flash_pagecache;
      pagesize = PDATA(pgm)->flash_pagesize;
@@ -1875,7 +2042,8 @@ static int jtag3_write_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
       unsupp = 1;
   } else if (strncmp(mem->desc, "fuse", strlen("fuse")) == 0) {
     cmd[3] = MTYPE_FUSE_BITS;
-    addr = mem->offset & 7;
+    if (!(p->flags & AVRPART_HAS_UPDI))
+      addr = mem->offset & 7;
   } else if (strcmp(mem->desc, "usersig") == 0) {
     cmd[3] = MTYPE_USERSIG;
   } else if (strcmp(mem->desc, "prodsig") == 0) {
@@ -1923,12 +2091,12 @@ static int jtag3_write_byte(PROGRAMMER * pgm, AVRPART * p, AVRMEM * mem,
     return -1;
 
   u32_to_b4(cmd + 8, 1);
-  u32_to_b4(cmd + 4, addr);
+  u32_to_b4(cmd + 4, jtag3_memaddr(pgm, p, mem, addr));
   cmd[12] = 0;
   cmd[13] = data;
 
   if ((status = jtag3_command(pgm, cmd, 14, &resp, "write memory")) < 0)
-    return -1;
+    return status;
 
   free(resp);
 
@@ -2045,6 +2213,28 @@ int jtag3_setparm(PROGRAMMER * pgm, unsigned char scope,
   return status;
 }
 
+int jtag3_read_sib(PROGRAMMER * pgm, AVRPART * p, char * sib)
+{
+  int status;
+  unsigned char cmd[12];
+  unsigned char *resp = NULL;
+
+  cmd[0] = SCOPE_AVR;
+  cmd[1] = CMD3_READ_MEMORY;
+  cmd[2] = 0;
+  cmd[3] = MTYPE_SIB;
+  u32_to_b4(cmd + 4, 0);
+  u32_to_b4(cmd + 8, AVR_SIBLEN);
+
+  if ((status = jtag3_command(pgm, cmd, 12, &resp, "read SIB")) < 0)
+	return status;
+
+  memcpy(sib, resp+3, AVR_SIBLEN);
+  sib[AVR_SIBLEN] = 0; // Zero terminate string
+  avrdude_message(MSG_DEBUG, "%s: jtag3_read_sib(): Received SIB: \"%s\"\n", progname, sib);
+  free(resp);
+  return 0;
+}
 
 static void jtag3_display(PROGRAMMER * pgm, const char * p)
 {
@@ -2155,6 +2345,17 @@ static unsigned int jtag3_memaddr(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m, uns
   /*
    * Non-Xmega device.
    */
+  if (p->flags & AVRPART_HAS_UPDI) {
+    if (strcmp(m->desc, "fuses") == 0) {
+        addr += m->offset;
+    }
+    else if (strncmp(m->desc, "fuse", strlen("fuse")) == 0) {
+        addr = m->offset;
+    }
+    else if (strcmp(m->desc, "flash") != 0) {
+        addr += m->offset;
+    }
+  }
   return addr;
 }
 
@@ -2258,5 +2459,41 @@ void jtag3_pdi_initpgm(PROGRAMMER * pgm)
   pgm->teardown       = jtag3_teardown;
   pgm->page_size      = 256;
   pgm->flag           = PGM_FL_IS_PDI;
+}
+
+const char jtag3_updi_desc[] = "Atmel JTAGICE3 in UPDI mode";
+
+void jtag3_updi_initpgm(PROGRAMMER * pgm)
+{
+  strcpy(pgm->type, "JTAGICE3_UPDI");
+
+  /*
+   * mandatory functions
+   */
+  pgm->initialize     = jtag3_initialize;
+  pgm->display        = jtag3_display;
+  pgm->enable         = jtag3_enable;
+  pgm->disable        = jtag3_disable;
+  pgm->program_enable = jtag3_program_enable_dummy;
+  pgm->chip_erase     = jtag3_chip_erase;
+  pgm->open           = jtag3_open_updi;
+  pgm->close          = jtag3_close;
+  pgm->read_byte      = jtag3_read_byte;
+  pgm->write_byte     = jtag3_write_byte;
+
+  /*
+   * optional functions
+   */
+  pgm->paged_write    = jtag3_paged_write;
+  pgm->paged_load     = jtag3_paged_load;
+  pgm->page_erase     = jtag3_page_erase;
+  pgm->print_parms    = jtag3_print_parms;
+  pgm->set_sck_period = jtag3_set_sck_period;
+  pgm->setup          = jtag3_setup;
+  pgm->teardown       = jtag3_teardown;
+  pgm->page_size      = 256;
+  pgm->flag           = PGM_FL_IS_UPDI;
+  pgm->unlock         = jtag3_unlock_erase_key;
+  pgm->read_sib       = jtag3_read_sib;
 }
 

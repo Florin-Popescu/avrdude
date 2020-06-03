@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: config_gram.y 1328 2014-07-16 20:02:01Z rliebscher $ */
+/* $Id: config_gram.y 1405 2018-01-09 23:29:31Z joerg_wunsch $ */
 %{
 
 #include "ac_cfg.h"
@@ -80,6 +80,7 @@ static int pin_name;
 %token K_DEFAULT_SAFEMODE
 %token K_DEFAULT_SERIAL
 %token K_DESC
+%token K_FAMILY_ID
 %token K_DEVICECODE
 %token K_STK500_DEVCODE
 %token K_AVR910_DEVCODE
@@ -96,6 +97,7 @@ static int pin_name;
 %token K_MOSI
 %token K_NUM_PAGES
 %token K_NVM_BASE
+%token K_OCD_BASE
 %token K_OCDREV
 %token K_OFFSET
 %token K_PAGEL
@@ -183,6 +185,7 @@ static int pin_name;
 %token K_HAS_JTAG		/* MCU has JTAG i/f. */
 %token K_HAS_DW			/* MCU has debugWire i/f. */
 %token K_HAS_PDI                /* MCU has PDI i/f rather than ISP (ATxmega). */
+%token K_HAS_UPDI               /* MCU has UPDI i/f (AVR8X). */
 %token K_HAS_TPI                /* MCU has TPI i/f rather than ISP (ATtiny4/5/9/10). */
 %token K_IDR			/* address of OCD register in IO space */
 %token K_IS_AT90S1200		/* chip is an AT90S1200 (needs special treatment) */
@@ -674,6 +677,13 @@ part_parm :
       free_token($3);
     } |
 
+  K_FAMILY_ID TKN_EQUAL TKN_STRING
+    {
+      strncpy(current_part->family_id, $3->value.string, AVR_FAMILYIDLEN);
+      current_part->family_id[AVR_FAMILYIDLEN] = 0;
+      free_token($3);
+    } |
+
   K_DEVICECODE TKN_EQUAL TKN_NUMBER {
     {
       yyerror("devicecode is deprecated, use "
@@ -1062,6 +1072,16 @@ part_parm :
       free_token($3);
     } |
 
+  K_HAS_UPDI TKN_EQUAL yesno
+    {
+      if ($3->primary == K_YES)
+        current_part->flags |= AVRPART_HAS_UPDI;
+      else if ($3->primary == K_NO)
+        current_part->flags &= ~AVRPART_HAS_UPDI;
+
+      free_token($3);
+    } |
+
   K_HAS_TPI TKN_EQUAL yesno
     {
       if ($3->primary == K_YES)
@@ -1145,6 +1165,12 @@ part_parm :
   K_NVM_BASE TKN_EQUAL TKN_NUMBER
     {
       current_part->nvm_base = $3->value.number;
+      free_token($3);
+    } |
+
+ K_OCD_BASE TKN_EQUAL TKN_NUMBER
+    {
+      current_part->ocd_base = $3->value.number;
       free_token($3);
     } |
 

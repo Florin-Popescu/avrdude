@@ -17,13 +17,13 @@
 #
 
 #
-# $Id: configure.ac 1376 2016-02-16 21:28:52Z joerg_wunsch $
+# $Id: configure.ac 1424 2018-01-21 22:21:25Z joerg_wunsch $
 #
 
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.60)
-AC_INIT(avrdude, 6.3, avrdude-dev@nongnu.org)
+AC_INIT(avrdude, 6.3-20171130, avrdude-dev@nongnu.org)
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
@@ -35,6 +35,8 @@ AC_CONFIG_HEADERS(ac_cfg.h)
 AC_CONFIG_MACRO_DIR([m4])
 
 LT_INIT()
+
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
 AC_PROG_CC
@@ -113,10 +115,22 @@ if test x$have_libusb = xyes; then
 fi
 AC_SUBST(LIBUSB, $LIBUSB)
 
+AC_ARG_ENABLE(
+	[libusb_1_0],
+	AC_HELP_STRING(
+		[--disable-libusb_1_0],
+		[Allow to build with libusb instead of libusb_1_0 if both are present]),
+	[case "${enableval}" in
+		yes) enabled_libusb_1_0=yes ;;
+		no)  enabled_libusb_1_0=no ;;
+		*)   AC_MSG_ERROR(bad value ${enableval} for enable-libusb_1_0 option) ;;
+		esac],
+	[enabled_libusb_1_0=yes])	
+
 AH_TEMPLATE([HAVE_LIBUSB_1_0],
             [Define if USB support is enabled via libusb 1.0])
 AC_CHECK_LIB([usb-1.0], [libusb_init], [have_libusb_1_0=yes])
-if test x$have_libusb_1_0 = xyes; then
+if test x$have_libusb_1_0 = xyes && test x$enabled_libusb_1_0 = xyes; then
    case $target in
        *-*-darwin*)
                LIBUSB_1_0="-lusb-1.0 -framework CoreFoundation -framework IOKit"
@@ -132,7 +146,7 @@ fi
 AH_TEMPLATE([HAVE_LIBUSB_1_0],
             [Define if USB support is enabled via a libusb-1.0 compatible libusb])
 AC_CHECK_LIB([usb], [libusb_init], [have_libusb_1_0=yes])
-if test x$have_libusb_1_0 = xyes; then
+if test x$have_libusb_1_0 = xyes && test x$enabled_libusb_1_0 = xyes; then
    case $target in
        *-*-freebsd*)
                # FreeBSD 8+ has a native libusb-1.0 API compatible
@@ -150,13 +164,32 @@ if test x$have_libusb_1_0 = xyes; then
    AC_CHECK_HEADERS([libusb.h])
 fi
 AC_SUBST(LIBUSB_1_0, $LIBUSB_1_0)
+
+AH_TEMPLATE([HAVE_LIBHIDAPI],
+            [Define if HID support is enabled via libhidapi])
+AC_SEARCH_LIBS([hid_init], [hidapi hidapi-libusb hidapi-hidraw], [have_libhidapi=yes])
+if test x$have_libhidapi = xyes; then
+   case $target in
+       *-*-darwin*)
+               LIBHIDAPI="-lhidapi -iframework CoreFoundation -framework IOKit"
+               ;;
+       *)
+               LIBHIDAPI="$ac_cv_lib_hid_init"
+               ;;
+   esac
+   AC_DEFINE([HAVE_LIBHIDAPI])
+   AC_CHECK_HEADERS([hidapi/hidapi.h])
+fi
+AC_SUBST(LIBHIDAPI, $LIBHIDAPI)
+
+
 AH_TEMPLATE([HAVE_LIBFTDI1],
             [Define if FTDI support is enabled via libftdi1])
 AH_TEMPLATE([HAVE_LIBFTDI],
             [Define if FTDI support is enabled via libftdi])
 AH_TEMPLATE([HAVE_LIBFTDI_TYPE_232H],
             [Define if libftdi supports FT232H, libftdi version >= 0.20])
-AC_CHECK_LIB([ftdi1], [ftdi_new], [have_libftdi1=yes], [], [-lusb-1.0])
+AC_CHECK_LIB([ftdi1], [ftdi_new], [have_libftdi1=yes], [], [$LIBUSB_1_0])
 AC_CHECK_LIB([ftdi], [ftdi_usb_get_strings], [have_libftdi=yes], [], [-lusb])
 if test x$have_libftdi1 = xyes; then
    LIBFTDI1="-lftdi1"
@@ -191,11 +224,13 @@ AC_CHECK_HEADERS([ddk/hidsdi.h],,,[#include <windows.h>
 AC_C_CONST
 AC_HEADER_TIME
 
+AC_CHECK_HEADERS([netinet/in.h])
+
 # WinSock2
 AC_CHECK_LIB([ws2_32], [puts])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([memset select strcasecmp strdup strerror strncasecmp strtol strtoul gettimeofday usleep])
+AC_CHECK_FUNCS([memset select strcasecmp strdup strerror strncasecmp strtol strtoul gettimeofday usleep getaddrinfo])
 
 AC_MSG_CHECKING([for a Win32 HID libray])
 SAVED_LIBS="${LIBS}"
@@ -494,7 +529,11 @@ else
 fi
 
 if test x$have_libusb_1_0 = xyes; then
-   echo "DO HAVE    libusb_1_0"
+   if test x$enabled_libusb_1_0 = xyes; then
+       echo "DO HAVE    libusb_1_0"
+   else
+       echo "DISABLED   libusb_1_0"
+   fi
 else
    echo "DON'T HAVE libusb_1_0"
 fi
@@ -519,6 +558,12 @@ if test x$have_libhid = xyes; then
    echo "DO HAVE    libhid"
 else
    echo "DON'T HAVE libhid"
+fi
+
+if test x$have_libhidapi = xyes; then
+   echo "DO HAVE    libhidapi"
+else
+   echo "DON'T HAVE libhidapi"
 fi
 
 if test x$have_pthread = xyes; then

@@ -10,7 +10,7 @@ Contributors:
 	Alex Shepherd <maillists@ajsystems.co.nz>
 	Martin Thomas <mthomas@rhrk.uni-kl.de>
 	Theodore A. Roth <troth@openavr.org>
-	Michael Holzt <kju-avr@fqdn.org>
+	Juliane Holzt <avrdude@juliane.holzt.de>
 	Colin O'Flynn <coflynn@newae.com>
 	Thomas Fischl <tfischl@gmx.de>
 	David Hoerl <dhoerl@mac.com>
@@ -23,6 +23,8 @@ Contributors:
 	Brett Hagman <bhagman@roguerobotics.com>
 	Rene Liebscher <r.liebscher@gmx.de>
 	Jim Paris <jim@jtan.com>
+	Jan Egil Ruud <janegil.ruud@microchip.com>
+	David Mosberger-Tang
 
 For minor contributions, please see the ChangeLog files.
 
