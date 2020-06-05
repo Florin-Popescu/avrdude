@@ -1,4 +1,4 @@
-$INSTALL_DIR=/home/avrdude
+INSTALL_DIR=/home/avrdude
 
 ./bootstrap
 
