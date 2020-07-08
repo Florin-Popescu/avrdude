@@ -1,8 +1,9 @@
+#!/bin/bash
+
 INSTALL_DIR=/c/avr
 
 ./bootstrap
 
-CC=x86_64-w64-mingw32-gcc \
 ./configure \
 --prefix=$INSTALL_DIR \
 --datadir=$INSTALL_DIR \
