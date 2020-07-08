@@ -1222,6 +1222,14 @@ programmer
 ;
 
 programmer
+  id    = "nedbg_updi";
+  desc  = "Microchip Nano Embedded Debugger in UPDI mode";
+  type  = "jtagice3_updi";
+  connection_type = usb;
+  usbpid = 0x2175;
+;
+
+programmer
   id    = "pavr";
   desc  = "Jason Kyle's pAVR Serial Programmer";
   type  = "avr910";
