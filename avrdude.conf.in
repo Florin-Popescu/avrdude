@@ -1230,12 +1230,48 @@ programmer
 ;
 
 programmer
+  id    = "snap_dw";
+  desc  = "Microchip MPLAB Snap Debugger in debugWire mode";
+  type  = "jtagice3_dw";
+  connection_type = usb;
+  usbvid = 0x03eb;
+  usbpid = 0x2180;
+;
+
+programmer
+  id    = "snap_isp";
+  desc  = "Microchip MPLAB Snap Debugger in ISP mode";
+  type  = "jtagice3_isp";
+  connection_type = usb;
+  usbvid = 0x03eb;
+  usbpid = 0x2180;
+;
+
+programmer
+  id    = "snap_jtag";
+  desc  = "Microchip MPLAB Snap Debugger in JTAG mode";
+  type  = "jtagice3";
+  connection_type = usb;
+  usbvid = 0x03eb;
+  usbpid = 0x2180;
+;
+
+programmer
+  id    = "snap_pdi";
+  desc  = "Microchip MPLAB Snap Debugger in PDI mode";
+  type  = "jtagice3_pdi";
+  connection_type = usb;
+  usbvid = 0x03eb;
+  usbpid = 0x2180;
+;
+
+programmer
   id    = "snap_updi";
   desc  = "Microchip MPLAB Snap Debugger in UPDI mode";
   type  = "jtagice3_updi";
   connection_type = usb;
-  usbvid = 0x04d8;
-  usbpid = 0x9018;
+  usbvid = 0x03eb;
+  usbpid = 0x2180;
 ;
 
 programmer
