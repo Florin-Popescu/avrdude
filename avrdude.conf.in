@@ -1230,6 +1230,15 @@ programmer
 ;
 
 programmer
+  id    = "snap_updi";
+  desc  = "Microchip MPLAB Snap Debugger in UPDI mode";
+  type  = "jtagice3_updi";
+  connection_type = usb;
+  usbvid = 0x04d8;
+  usbpid = 0x9018;
+;
+
+programmer
   id    = "pavr";
   desc  = "Jason Kyle's pAVR Serial Programmer";
   type  = "avr910";
