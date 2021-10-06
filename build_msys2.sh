@@ -9,5 +9,5 @@ INSTALL_DIR=/c/avr
 --datadir=$INSTALL_DIR \
 --sysconfdir=$INSTALL_DIR/bin
 
-make all -j $NUMBER_OF_PROCESSORS
+make all -j$NUMBER_OF_PROCESSORS
 make install
