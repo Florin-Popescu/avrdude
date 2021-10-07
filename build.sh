@@ -11,6 +11,23 @@ case $(uname -o | cut -d '/' -f2) in
 		make install
 		cd ..
 
+		git clone git@github.com:libconfuse/libconfuse.git
+		cd ./libconfuse
+		./autogen.sh
+		./configure
+		make -j$NUMBER_OF_PROCESSORS
+		make install
+		cd ..
+
+		git clone git://developer.intra2net.com/libftdi
+		cd ./libftdi
+		mkdir build
+		cd build
+		cmake -DCMAKE_INSTALL_PREFIX="/usr" ../
+		make -j$NUMBER_OF_PROCESSORS
+		make install
+		cd ..
+
 		git clone git@github.com:libusb/hidapi.git
 		cd ./hidapi
 		./bootstrap
