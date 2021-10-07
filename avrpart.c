@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: avrpart.c 1428 2019-01-05 23:01:56Z joerg_wunsch $ */
+/* $Id: avrpart.c 1436 2020-09-10 21:37:34Z joerg_wunsch $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -254,6 +254,7 @@ AVRMEM * avr_new_memtype(void)
   }
 
   memset(m, 0, sizeof(*m));
+  m->page_size = 1; // ensure not 0
 
   return m;
 }

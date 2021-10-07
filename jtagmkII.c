@@ -21,7 +21,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: jtagmkII.c 1435 2020-03-14 22:34:45Z joerg_wunsch $ */
+/* $Id: jtagmkII.c 1443 2020-09-16 21:31:19Z joerg_wunsch $ */
 
 /*
  * avrdude interface for Atmel JTAG ICE mkII programmer
@@ -1916,7 +1916,7 @@ static int jtagmkII_page_erase(PROGRAMMER * pgm, AVRPART * p, AVRMEM * m,
 
   retry:
     avrdude_message(MSG_NOTICE2, "%s: jtagmkII_page_erase(): "
-            "Sending xmega erase command: ",
+            "Sending Xmega erase command: ",
             progname);
   jtagmkII_send(pgm, cmd, sizeof cmd);
 

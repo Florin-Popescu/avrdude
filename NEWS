@@ -1,4 +1,4 @@
-$Id: NEWS 1435 2020-03-14 22:34:45Z joerg_wunsch $
+$Id: NEWS 1453 2021-06-27 20:42:06Z joerg_wunsch $
 
 Approximate change log for AVRDUDE by version.
 
@@ -30,13 +30,16 @@ Current:
       ATmega4809
     - ATtiny841, ATtiny441
     - ATmega64M1
+    - ATmega324A
 
   * New programmers supported:
 
     - ehajo-isp (commercial version of USBtiny)
     - XplainedPro in UPDI mode
     - XplainedMini in UPDI mode
+    - JTAGICE3 in UPDI mode
     - Atmel Powerdebugger in all modes (JTAG, PDI, UPDI, debugWIRE, ISP)
+    - linuxspi (direct SPI bus e.g. on Raspberry Pi devices)
 
   * Bugfixes:
     bug #47550: Linux GPIO broken
@@ -45,6 +48,10 @@ Current:
     bug #47376: ATtiny841 description missing in configuration file
     bug #49455: support for tiny441
     bug #57428: document when 'arduino' or 'wiring' should be used, and -D requirement of latter
+    bug #58095: error setting efuse on atmega328pb variant
+    no-id: efuse section on ATmega32M1 lacks 'size'
+    bug #60753: Patch #1436 breaks multiple programmer/device combinations on MacOS BigSur
+    bug #59525: Bogus error message because Copy/Paste typo in stk500.c
 
   * Patches:
     patch #9482: Add support for UPDI and AVR8X
@@ -70,6 +77,14 @@ Current:
     patch #9728: Fix UsbTiny programmer
     patch #9893: [PATCH] Reader reads ftdi handle after main thread close it
     patch #9819: Address several leaks in SVN rev 1429
+    patch #9820: Fix some out-of-bounds/uninitialized issues
+    patch #9818: correct typos in SVN rev 1429
+    patch #9732: usbtiny_paged_load overflows buffer e.g. when reading EEPROM
+    patch #9966: Add JTAGICE3 in UPDI mode
+    patch #9963: UsbAsp 3 MHz patch for UsbAsp-flash firmware
+    patch #9816: Implement new programmer type: linuxspi
+    patch #9811: ATmega328pb has efuse bit 3
+    patch #9744: Patch for ATMega324A support
 
   * Internals:
     - New avrdude.conf keyword "family_id", used to verify SIB attributes

@@ -19,7 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: stk500v2.c 1435 2020-03-14 22:34:45Z joerg_wunsch $ */
+/* $Id: stk500v2.c 1452 2021-06-27 20:26:05Z joerg_wunsch $ */
 /* Based on Id: stk500.c,v 1.46 2004/12/22 01:52:45 bdean Exp */
 
 /*
@@ -1290,14 +1290,14 @@ static int stk500v2_initialize(PROGRAMMER * pgm, AVRPART * p)
   for (ln = lfirst(p->mem); ln; ln = lnext(ln)) {
     m = ldata(ln);
     if (strcmp(m->desc, "flash") == 0) {
-      if (m->page_size > 0) {
+      if (m->page_size > 1) {
         if (m->page_size > 256)
           PDATA(pgm)->flash_pagesize = 256;
         else
           PDATA(pgm)->flash_pagesize = m->page_size;
       }
     } else if (strcmp(m->desc, "eeprom") == 0) {
-      if (m->page_size > 0)
+      if (m->page_size > 1)
 	PDATA(pgm)->eeprom_pagesize = m->page_size;
     }
   }
@@ -1389,14 +1389,14 @@ static int stk500v2_jtag3_initialize(PROGRAMMER * pgm, AVRPART * p)
   for (ln = lfirst(p->mem); ln; ln = lnext(ln)) {
     m = ldata(ln);
     if (strcmp(m->desc, "flash") == 0) {
-      if (m->page_size > 0) {
+      if (m->page_size > 1) {
         if (m->page_size > 256)
           PDATA(pgm)->flash_pagesize = 256;
         else
           PDATA(pgm)->flash_pagesize = m->page_size;
       }
     } else if (strcmp(m->desc, "eeprom") == 0) {
-      if (m->page_size > 0)
+      if (m->page_size > 1)
 	PDATA(pgm)->eeprom_pagesize = m->page_size;
     }
   }
@@ -1460,14 +1460,14 @@ static int stk500hv_initialize(PROGRAMMER * pgm, AVRPART * p, enum hvmode mode)
   for (ln = lfirst(p->mem); ln; ln = lnext(ln)) {
     m = ldata(ln);
     if (strcmp(m->desc, "flash") == 0) {
-      if (m->page_size > 0) {
+      if (m->page_size > 1) {
         if (m->page_size > 256)
           PDATA(pgm)->flash_pagesize = 256;
         else
           PDATA(pgm)->flash_pagesize = m->page_size;
       }
     } else if (strcmp(m->desc, "eeprom") == 0) {
-      if (m->page_size > 0)
+      if (m->page_size > 1)
 	PDATA(pgm)->eeprom_pagesize = m->page_size;
     }
   }
@@ -2823,9 +2823,15 @@ static int stk500v2_set_sck_period_mk2(PROGRAMMER * pgm, double v)
 {
   int i;
 
-  for (i = 0; i < sizeof(avrispmkIIfreqs); i++) {
+  for (i = 0; i < sizeof(avrispmkIIfreqs) / sizeof(avrispmkIIfreqs[0]); i++) {
     if (1 / avrispmkIIfreqs[i] >= v)
       break;
+  }
+
+  if (i >= sizeof(avrispmkIIfreqs) / sizeof(avrispmkIIfreqs[0])) {
+    avrdude_message(MSG_INFO, "%s: stk500v2_set_sck_period_mk2(): "
+                    "invalid SCK period: %g\n", progname, v);
+    return -1;
   }
 
   avrdude_message(MSG_NOTICE2, "Using p = %.2f us for SCK (param = %d)\n",
@@ -3152,8 +3158,9 @@ static const char *stk600_get_cardname(const struct carddata *table,
 
 static void stk500v2_display(PROGRAMMER * pgm, const char * p)
 {
-  unsigned char maj, min, hdw, topcard, maj_s1, min_s1, maj_s2, min_s2;
-  unsigned int rev;
+  unsigned char maj = 0, min = 0, hdw = 0, topcard = 0,
+                maj_s1 = 0, min_s1 = 0, maj_s2 = 0, min_s2 = 0;
+  unsigned int rev = 0;
   const char *topcard_name, *pgmname;
 
   switch (PDATA(pgm)->pgmtype) {
@@ -3724,7 +3731,7 @@ static int stk600_xprog_program_enable(PROGRAMMER * pgm, AVRPART * p)
             return -1;
         }
         if ((mem = avr_locate_mem(p, "eeprom")) != NULL) {
-            if (mem->page_size == 0) {
+            if (mem->page_size <= 1) {
                 avrdude_message(MSG_INFO, "%s: stk600_xprog_program_enable(): no EEPROM page_size parameter for PDI device\n",
                                 progname);
                 return -1;

@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: fileio.c 1431 2020-03-11 09:41:15Z joerg_wunsch $ */
+/* $Id: fileio.c 1443 2020-09-16 21:31:19Z joerg_wunsch $ */
 
 #include "ac_cfg.h"
 
@@ -1172,7 +1172,7 @@ static int fileio_ihex(struct fioparms * fio,
       break;
 
     default:
-      avrdude_message(MSG_INFO, "%s: invalid Intex Hex file I/O operation=%d\n",
+      avrdude_message(MSG_INFO, "%s: invalid Intel Hex file I/O operation=%d\n",
               progname, fio->op);
       return -1;
       break;

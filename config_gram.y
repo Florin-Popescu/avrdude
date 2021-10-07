@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: config_gram.y 1405 2018-01-09 23:29:31Z joerg_wunsch $ */
+/* $Id: config_gram.y 1438 2020-09-10 21:43:23Z joerg_wunsch $ */
 %{
 
 #include "ac_cfg.h"
@@ -672,7 +672,7 @@ part_parm :
 
   K_DESC TKN_EQUAL TKN_STRING 
     {
-      strncpy(current_part->desc, $3->value.string, AVR_DESCLEN);
+      strncpy(current_part->desc, $3->value.string, AVR_DESCLEN - 1);
       current_part->desc[AVR_DESCLEN-1] = 0;
       free_token($3);
     } |
@@ -1240,7 +1240,7 @@ part_parm :
         free_token($2);
         YYABORT;
       }
-      strncpy(current_mem->desc, $2->value.string, AVR_MEMDESCLEN);
+      strncpy(current_mem->desc, $2->value.string, AVR_MEMDESCLEN - 1);
       current_mem->desc[AVR_MEMDESCLEN-1] = 0;
       free_token($2);
     }
@@ -1310,7 +1310,13 @@ mem_spec :
 
   K_PAGE_SIZE       TKN_EQUAL TKN_NUMBER
     {
-      current_mem->page_size = $3->value.number;
+      int ps = $3->value.number;
+      if (ps <= 0)
+        avrdude_message(MSG_INFO,
+                        "%s, line %d: invalid page size %d, ignored\n",
+                        infile, lineno, ps);
+      else
+        current_mem->page_size = ps;
       free_token($3);
     } |
 

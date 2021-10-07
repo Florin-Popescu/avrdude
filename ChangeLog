@@ -1,21 +1,11 @@
-2020-03-14  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
+2021-06-27  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
 
-	Submitted by Adrian Klieber:
-	patch #9819: Address several leaks in SVN rev 1429
-	* config.c: Fix potential memory leak
-	* jtagmkII.c: (Dito.)
-	* stk500v2.c: (Dito.)
-	* update.c: (Dito.)
-	* windows/loaddrv.c: Fix file descriptor leak.
+	bug #60753: Patch #1436 breaks multiple programmer/device combinations on MacOS BigSur
+	* avr.c: compare page_size > 1 instead of != 0
+	* stk500v2.c: (Ditto.)
 
-2020-03-11  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
+2021-06-27  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
 
-	Submitted by: kautism
-	patch #9893: [PATCH] Reader reads ftdi handle after main thread close it
-	* ft245r.c: Wait until reader thread has been stopped before closing FTDI
-
-2020-03-11  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
-
-	Fix compiler warnings
-	* avr.c: misleading indentation after spin loop
-	* fileio.c: EM_AVR32 might be defined in system <libelf.h>
+	Submitted by gerardoallende:
+	bug #59525: Bogus error message because Copy/Paste typo in stk500.c
+	* stk500.c (stk500_getparm): Fix bogus ID in error message

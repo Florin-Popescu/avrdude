@@ -26,7 +26,7 @@
 # make V=1
 
 #
-# $Id: Makefile.am 1411 2018-01-12 22:07:39Z joerg_wunsch $
+# $Id: Makefile.am 1447 2020-09-19 21:32:38Z joerg_wunsch $
 #
 
 EXTRA_DIST   = \
@@ -149,6 +149,8 @@ libavrdude_a_SOURCES = \
 	libavrdude.h \
 	linuxgpio.c \
 	linuxgpio.h \
+	linuxspi.c \
+	linuxspi.h \
 	linux_ppdev.h \
 	lists.c \
 	my_ddk_hidsdi.h \

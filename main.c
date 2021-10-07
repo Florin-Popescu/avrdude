@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: main.c 1417 2018-01-16 21:17:04Z joerg_wunsch $ */
+/* $Id: main.c 1443 2020-09-16 21:31:19Z joerg_wunsch $ */
 
 /*
  * Code to program an Atmel AVR device through one of the supported
@@ -921,7 +921,7 @@ int main(int argc, char * argv [])
    */
   if (port[0] == 0) {
     avrdude_message(MSG_INFO, "\n%s: no port has been specified on the command line "
-            "or the config file\n",
+            "or in the config file\n",
             progname);
     avrdude_message(MSG_INFO, "%sSpecify a port using the -P option and try again\n\n",
             progbuf);
@@ -1176,7 +1176,7 @@ int main(int argc, char * argv [])
 	  //Check if the programmer just doesn't support reading
   	  if (rc == -5)
 			{
-				avrdude_message(MSG_NOTICE, "%s: safemode: Fuse reading not support by programmer.\n"
+				avrdude_message(MSG_NOTICE, "%s: safemode: Fuse reading not supported by programmer.\n"
 						"              Safemode disabled.\n", progname);
 			}
       else

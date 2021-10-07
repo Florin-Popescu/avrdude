@@ -33,7 +33,7 @@
  * Tested with BusPirate PTH, firmware version 2.1 programming ATmega328P
  */
 
-/* $Id: buspirate.c 1339 2014-11-13 13:53:47Z rliebscher $ */
+/* $Id: buspirate.c 1443 2020-09-16 21:31:19Z joerg_wunsch $ */
 
 #include "ac_cfg.h"
 
@@ -801,7 +801,7 @@ static void buspirate_powerup(struct programmer_t *pgm)
 				char buf[25];
 				int ok = 0;
 				snprintf(buf, sizeof(buf), "%d\n", PDATA(pgm)->cpufreq);
-				if (buspirate_expect(pgm, "g\n", "Frequency in KHz", 1)) {
+				if (buspirate_expect(pgm, "g\n", "Frequency in kHz", 1)) {
 					if (buspirate_expect(pgm, buf, "Duty cycle in %", 1)) {
 						if (buspirate_expect(pgm, "50\n", "PWM active", 1)) {
 							ok = 1;

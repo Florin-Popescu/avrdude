@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $Id: stk500.c 1321 2014-06-13 20:07:40Z awachtler $ */
+/* $Id: stk500.c 1453 2021-06-27 20:42:06Z joerg_wunsch $ */
 
 /*
  * avrdude interface for Atmel STK500 programmer
@@ -1118,7 +1118,7 @@ static int stk500_getparm(PROGRAMMER * pgm, unsigned parm, unsigned * value)
   else if (buf[0] != Resp_STK_OK) {
     avrdude_message(MSG_INFO, "\n%s: stk500_getparm(): (a) protocol error, "
                     "expect=0x%02x, resp=0x%02x\n",
-                    progname, Resp_STK_INSYNC, buf[0]);
+                    progname, Resp_STK_OK, buf[0]);
     return -3;
   }
 
