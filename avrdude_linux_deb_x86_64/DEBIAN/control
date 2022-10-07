@@ -1,5 +1,5 @@
 Package: avrdude
-Version: 6.3-20171130+svn1453-3
+Version: 6.3-3
 Section: base
 Priority: optional
 Architecture: amd64
