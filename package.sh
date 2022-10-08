@@ -1,5 +1,8 @@
 #!/bin/bash
 
+TOOL=avrdude
+ARCH=$(uname -m)
+
 if [ -x "$(command -v dpkg-deb)" ]; then
 	DISTRO=deb
 elif [ -x "$(command -v makepkg)" ]; then
