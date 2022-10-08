@@ -18,11 +18,28 @@ backup=()
 options=()
 install=
 changelog=
-source=()
+source=(https://github.com/Florin-Popescu/avrdude/archive/refs/tags/v${pkgver}-20171130+svn1453-${pkgrel}.tar.gz)
 noextract=()
-md5sums=()
+md5sums=('SKIP')
 validpgpkeys=()
 
+prepare() {
+	cd "${srcdir}/${pkgname}-${pkgver}-20171130-svn1453-${pkgrel}"
+}
+
+build() {
+	cd "${srcdir}/${pkgname}-${pkgver}-20171130-svn1453-${pkgrel}"
+	./bootstrap
+	./configure
+	make all
+}
+
+check() {
+	cd "${srcdir}/${pkgname}-${pkgver}-20171130-svn1453-${pkgrel}"
+	make -k check
+}
+
 package() {
+	cd "${srcdir}/${pkgname}-${pkgver}-20171130-svn1453-${pkgrel}"
 	make DESTDIR="$pkgdir/" install
 }
